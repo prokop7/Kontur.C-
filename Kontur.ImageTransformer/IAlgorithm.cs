@@ -3,8 +3,8 @@ using System.Drawing;
 
 namespace Kontur.ImageTransformer
 {
-    public interface IAlgrorithm
+    public interface IAlgorithm
     {
-        void Process(byte[] rgbValues, int x);
+        void Process(byte[] rgbValues, int x=0);
     }
 }

@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Kontur.ImageTransformer
 {
-    internal class Threshold : IAlgrorithm
+    internal class Threshold : IAlgorithm
     {
         public void Process(byte[] rgbValues, int x)
         {

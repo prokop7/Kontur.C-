@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Kontur.ImageTransformer
 {
-    public class Greyscale: IAlgrorithm
+    public class Greyscale: IAlgorithm
     {
         public void Process(byte[] rgbValues, int x = 0)
         {
