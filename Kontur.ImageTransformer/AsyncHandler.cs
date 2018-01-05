@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace Kontur.ImageTransformer
 {
-    public class AsyncHandler
+    public static class AsyncHandler
     {
         private static readonly IAlgorithm _threshold = new Threshold();
         private static readonly IAlgorithm _greyscale = new Greyscale();
@@ -20,7 +20,7 @@ namespace Kontur.ImageTransformer
             None
         }
 
-        public bool Handle(HttpListenerContext listenerContext)
+        public static bool Handle(HttpListenerContext listenerContext)
         {
             var (method, x, y, width, height, threshold) = ParseUrl(listenerContext.Request.RawUrl);
             if (method == MethodType.None)
@@ -111,7 +111,9 @@ namespace Kontur.ImageTransformer
                 listenerContext.Response.Close();
                 return null;
             }
-            return init.Clone(new Rectangle(x1, y1, width, height), init.PixelFormat);
+            var ret = init.Clone(new Rectangle(x1, y1, width, height), init.PixelFormat);
+            init.Dispose();
+            return ret;
         }
 
         private static (BitmapData, IntPtr, int, byte[]) GetData(Bitmap bitmap)

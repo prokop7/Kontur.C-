@@ -79,7 +79,7 @@ namespace Kontur.ImageTransformer
                     {
                         var context = _listener.GetContext();
                         mut.WaitOne();
-                        if (_numRequests >= 30)
+                        if (_numRequests >= 100)
                         {
                             //Console.Out.WriteLine(_numRequests + "=");
                             mut.ReleaseMutex();
@@ -140,8 +140,7 @@ namespace Kontur.ImageTransformer
                 return;
             try
             {
-                var asyncHandler = new AsyncHandler();
-                asyncHandler.Handle(listenerContext);
+                AsyncHandler.Handle(listenerContext);
             }
             catch (Exception e)
             {
