@@ -67,6 +67,8 @@ namespace Kontur.ImageTransformer
             _listener.Close();
         }
 
+        private static readonly Mutex mut = new Mutex();
+        
         private void Listen()
         {
             while (true)
@@ -76,20 +78,18 @@ namespace Kontur.ImageTransformer
                     if (_listener.IsListening)
                     {
                         var context = _listener.GetContext();
-                        _spinLock.Enter(ref _lock);
-                        if (_numRequests >= 50)
+                        mut.WaitOne();
+                        if (_numRequests >= 30)
                         {
-                            Console.Out.WriteLine(_numRequests + "=");
-                            _lock = false;
-                            _spinLock.Exit();
+                            //Console.Out.WriteLine(_numRequests + "=");
+                            mut.ReleaseMutex();
                             context.Response.StatusCode = 429;
                             context.Response.Close();
                             continue;
                         }
                         _numRequests++;
-                        Console.Out.WriteLine(_numRequests + "+");
-                        _lock = false;
-                        _spinLock.Exit();
+                        //Console.Out.WriteLine(_numRequests + "+");
+                        mut.ReleaseMutex();
                         Task.Run(() => HandleContextAsync(context));
                     }
                     else Thread.Sleep(0);
@@ -107,9 +107,6 @@ namespace Kontur.ImageTransformer
         }
 
         private static int _numRequests = 0;
-        private static SpinLock _spinLock = new SpinLock(false);
-        private static bool _lock;
-
 
         private static bool CheckContentLength(HttpListenerContext listenerContext)
         {
@@ -131,11 +128,10 @@ namespace Kontur.ImageTransformer
 
         private static void PostHandle(HttpListenerContext listenerContext)
         {
-            _spinLock.Enter(ref _lock);
-            Console.Out.WriteLine(_numRequests + "-");
+            mut.WaitOne();
+            //Console.Out.WriteLine(_numRequests + "-");
             _numRequests--;
-            _lock = false;
-            _spinLock.Exit();
+            mut.ReleaseMutex();
         }
 
         private static async Task HandleContextAsync(HttpListenerContext listenerContext)
