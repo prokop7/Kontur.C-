@@ -144,8 +144,9 @@ namespace Kontur.ImageTransformer
                     throw new ArgumentOutOfRangeException(nameof(listenerContext), listenerContext, null);
             }
         }
-        
-        private static void StoreData(HttpListenerContext listenerContext, Bitmap bitmap, BitmapData bitmapData, IntPtr ptr,
+
+        private static void StoreData(HttpListenerContext listenerContext, Bitmap bitmap, BitmapData bitmapData,
+            IntPtr ptr,
             int bytes, byte[] rgbValues)
         {
             System.Runtime.InteropServices.Marshal.Copy(rgbValues, 0, ptr, bytes);

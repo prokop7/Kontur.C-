@@ -76,12 +76,27 @@ namespace Kontur.ImageTransformer
                     if (_listener.IsListening)
                     {
                         var context = _listener.GetContext();
+                        _spinLock.Enter(ref _lock);
+                        if (_numRequests >= 50)
+                        {
+                            Console.Out.WriteLine(_numRequests + "=");
+                            _lock = false;
+                            _spinLock.Exit();
+                            context.Response.StatusCode = 429;
+                            context.Response.Close();
+                            continue;
+                        }
+                        _numRequests++;
+                        Console.Out.WriteLine(_numRequests + "+");
+                        _lock = false;
+                        _spinLock.Exit();
                         Task.Run(() => HandleContextAsync(context));
                     }
                     else Thread.Sleep(0);
                 }
-                catch (ThreadAbortException)
+                catch (ThreadAbortException e)
                 {
+                    Console.Out.WriteLine(e);
                     return;
                 }
                 catch (Exception error)
@@ -106,25 +121,18 @@ namespace Kontur.ImageTransformer
 
         private static bool PreHandler(HttpListenerContext listenerContext)
         {
-            _spinLock.Enter(ref _lock);
-            if (_numRequests >= 2)
+            if (!CheckContentLength(listenerContext))
             {
-                _lock = false;
-                _spinLock.Exit();
-                listenerContext.Response.StatusCode = 429;
-                listenerContext.Response.Close();
+                Console.Out.WriteLine("=");
                 return false;
             }
-            _numRequests++;
-            _lock = false;
-            Console.Out.WriteLine(_numRequests);
-            _spinLock.Exit();
-            return CheckContentLength(listenerContext);
+            return true;
         }
 
         private static void PostHandle(HttpListenerContext listenerContext)
         {
             _spinLock.Enter(ref _lock);
+            Console.Out.WriteLine(_numRequests + "-");
             _numRequests--;
             _lock = false;
             _spinLock.Exit();
@@ -134,11 +142,19 @@ namespace Kontur.ImageTransformer
         {
             if (!PreHandler(listenerContext))
                 return;
-            var asyncHandler = new AsyncHandler();
-            await Task.Delay(10000);
-            if (!asyncHandler.Handle(listenerContext))
-                return;
-            PostHandle(listenerContext);
+            try
+            {
+                var asyncHandler = new AsyncHandler();
+                asyncHandler.Handle(listenerContext);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+            finally
+            {
+                PostHandle(listenerContext);
+            }
         }
 
 
