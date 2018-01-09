@@ -79,7 +79,7 @@ namespace Kontur.ImageTransformer
                     {
                         var context = _listener.GetContext();
                         mut.WaitOne();
-                        if (_numRequests >= 100)
+                        if (_numRequests >= 200)
                         {
                             //Console.Out.WriteLine(_numRequests + "=");
                             mut.ReleaseMutex();

@@ -43,7 +43,7 @@ namespace Kontur.ImageTransformer
         private static (MethodType, int, int, int, int, int) ParseUrl(string url)
         {
             var pattern =
-                new Regex("/process/(grayscale|threshold(\\(\\d+\\))|sepia)/(-?\\d+),(-?\\d+),(-?\\d+),(-?\\d+)");
+                new Regex("/process/(grayscale|threshold|sepia)(\\((\\d+)\\))?/(-?\\d+),(-?\\d+),(-?\\d+),(-?\\d+)");
             try
             {
                 var match = pattern.Match(url);
@@ -51,29 +51,29 @@ namespace Kontur.ImageTransformer
                 var threshold = 0;
                 switch (match.Groups[1].Value)
                 {
-                    case "grayscale":
+                    case "grayscale" when !match.Groups[3].Success:
                         methodType = MethodType.Grayscale;
                         break;
                     case "threshold":
                         methodType = MethodType.Threshold;
-                        threshold = Convert.ToInt32(match.Groups[2].Value);
+                        threshold = Convert.ToInt32(match.Groups[3].Value);
                         if (threshold < 0 || threshold > 100)
                             return (MethodType.None, 0, 0, 0, 0, 0);
                         break;
-                    case "sepia":
+                    case "sepia" when !match.Groups[3].Success:
                         methodType = MethodType.Sepia;
                         break;
                     default:
                         methodType = MethodType.None;
                         break;
                 }
-                var x = Convert.ToInt32(match.Groups[3].Value);
-                var y = Convert.ToInt32(match.Groups[4].Value);
-                var width = Convert.ToInt32(match.Groups[5].Value);
-                var height = Convert.ToInt32(match.Groups[6].Value);
+                var x = Convert.ToInt32(match.Groups[4].Value);
+                var y = Convert.ToInt32(match.Groups[5].Value);
+                var width = Convert.ToInt32(match.Groups[6].Value);
+                var height = Convert.ToInt32(match.Groups[7].Value);
                 return (methodType, x, y, width, height, threshold);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return (MethodType.None, 0, 0, 0, 0, 0);
             }
@@ -87,33 +87,42 @@ namespace Kontur.ImageTransformer
                 listenerContext.Response.Close();
                 return null;
             }
-            var init = new Bitmap(listenerContext.Request.InputStream);
-            var x1 = Math.Min(x, x + width);
-            var x2 = Math.Max(x, x + width);
-            var y1 = Math.Min(y, y + height);
-            var y2 = Math.Max(y, y + height);
-            Bound(ref x1, maxBound: init.Width);
-            Bound(ref x2, maxBound: init.Width);
-            Bound(ref y1, maxBound: init.Height);
-            Bound(ref y2, maxBound: init.Height);
-
-            void Bound(ref int value, int minBound = 0, int maxBound = 0)
+            try
             {
-                value = Math.Min(value, maxBound);
-                value = Math.Max(value, minBound);
+                var init = new Bitmap(listenerContext.Request.InputStream);
+                var x1 = Math.Min(x, x + width);
+                var x2 = Math.Max(x, x + width);
+                var y1 = Math.Min(y, y + height);
+                var y2 = Math.Max(y, y + height);
+                Bound(ref x1, maxBound: init.Width);
+                Bound(ref x2, maxBound: init.Width);
+                Bound(ref y1, maxBound: init.Height);
+                Bound(ref y2, maxBound: init.Height);
+
+                void Bound(ref int value, int minBound = 0, int maxBound = 0)
+                {
+                    value = Math.Min(value, maxBound);
+                    value = Math.Max(value, minBound);
+                }
+
+                width = x2 - x1;
+                height = y2 - y1;
+                if (width * height == 0)
+                {
+                    listenerContext.Response.StatusCode = 204;
+                    listenerContext.Response.Close();
+                    return null;
+                }
+                var ret = init.Clone(new Rectangle(x1, y1, width, height), init.PixelFormat);
+                init.Dispose();
+                return ret;
             }
-
-            width = x2 - x1;
-            height = y2 - y1;
-            if (width * height == 0)
+            catch
             {
-                listenerContext.Response.StatusCode = 204;
+                listenerContext.Response.StatusCode = 400;
                 listenerContext.Response.Close();
                 return null;
             }
-            var ret = init.Clone(new Rectangle(x1, y1, width, height), init.PixelFormat);
-            init.Dispose();
-            return ret;
         }
 
         private static (BitmapData, IntPtr, int, byte[]) GetData(Bitmap bitmap)
@@ -121,7 +130,8 @@ namespace Kontur.ImageTransformer
             var bitmapData = bitmap.LockBits(
                 new Rectangle(0, 0, bitmap.Width, bitmap.Height),
                 ImageLockMode.ReadWrite,
-                bitmap.PixelFormat, new BitmapData());
+                bitmap.PixelFormat,
+                new BitmapData());
             var ptr = bitmapData.Scan0;
             var bytes = Math.Abs(bitmapData.Stride) * bitmap.Height;
             var rgbValues = new byte[bytes];
@@ -129,9 +139,9 @@ namespace Kontur.ImageTransformer
             return (bitmapData, ptr, bytes, rgbValues);
         }
 
-        private static void Process(MethodType listenerContext, byte[] rgbValues, int threshold)
+        private static void Process(MethodType methodType, byte[] rgbValues, int threshold)
         {
-            switch (listenerContext)
+            switch (methodType)
             {
                 case MethodType.Grayscale:
                     _greyscale.Process(rgbValues);
@@ -143,7 +153,7 @@ namespace Kontur.ImageTransformer
                     _threshold.Process(rgbValues, threshold);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(listenerContext), listenerContext, null);
+                    throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null);
             }
         }
 
