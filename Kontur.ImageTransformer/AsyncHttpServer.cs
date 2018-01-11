@@ -118,15 +118,10 @@ namespace Kontur.ImageTransformer
 
         private static bool PreHandler(HttpListenerContext listenerContext)
         {
-            if (!CheckContentLength(listenerContext))
-            {
-                Console.Out.WriteLine("=");
-                return false;
-            }
-            return true;
+            return CheckContentLength(listenerContext);
         }
 
-        private static void PostHandle(HttpListenerContext listenerContext)
+        private static void PostHandle()
         {
             mut.WaitOne();
             //Console.Out.WriteLine(_numRequests + "-");
@@ -136,19 +131,19 @@ namespace Kontur.ImageTransformer
 
         private static async Task HandleContextAsync(HttpListenerContext listenerContext)
         {
-            if (!PreHandler(listenerContext))
-                return;
             try
             {
+                if (!PreHandler(listenerContext))
+                    return;
                 AsyncHandler.Handle(listenerContext);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Console.WriteLine(e);
+                // ignored
             }
             finally
             {
-                PostHandle(listenerContext);
+                PostHandle();
             }
         }
 
